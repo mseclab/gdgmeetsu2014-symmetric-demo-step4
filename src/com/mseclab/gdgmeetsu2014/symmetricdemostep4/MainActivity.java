@@ -16,6 +16,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.PBEKeySpec;
+import javax.crypto.spec.SecretKeySpec;
 
 import com.mseclab.gdgmeetsu2014.symmetricdemostep4.R;
 
@@ -136,10 +137,18 @@ public class MainActivity extends Activity {
 		KeySpec keySpec = new PBEKeySpec(password.toCharArray(), SALT, NUM_OF_ITERATIONS, KEY_LEN);
 		SecretKeyFactory secretKeyFactory = null;
 		try {
+			
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
+				// Use compatibility key factory -- only uses lower 8-bits of passphrase chars
 				secretKeyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1And8bit");
-			else
+			else if (Build.VERSION.SDK_INT >= 10)
+				// Traditional key factory. Will use lower 8-bits of passphrase chars on
+			   	// older Android versions (API level 18 and lower) and all available bits
+			   	// on KitKat and newer (API level 19 and higher).
 				secretKeyFactory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
+			else // FIX for Android 8,9
+				secretKeyFactory = SecretKeyFactory.getInstance("PBEWITHSHAAND128BITAES-CBC-BC");
+
 		} catch (NoSuchAlgorithmException e) {
 			debug("Algorithm not available: " + e.getMessage());
 			return;
@@ -195,7 +204,9 @@ public class MainActivity extends Activity {
 
 		// Init cipher
 		try {
-			cipher.init(opMode, key, new IvParameterSpec(IV));
+			SecretKeySpec finalKey = new SecretKeySpec(key.getEncoded(), "AES");
+			//cipher.init(opMode, key, new IvParameterSpec(IV));
+			cipher.init(opMode, finalKey, new IvParameterSpec(IV));
 		} catch (InvalidKeyException e) {
 			debug("Key not valid: " + e.getMessage());
 			return null;
